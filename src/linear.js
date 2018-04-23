@@ -61,9 +61,9 @@ export function linearish(scale) {
 export default function linear() {
   var scale = continuous(deinterpolate, reinterpolate);
 
-  scale.copy = function() {
+  scale.copy = function() { // 给scale添加copy方法
     return copy(scale, linear());
   };
 
-  return linearish(scale);
+  return linearish(scale); // 给scale添加了些方法并返回scale, 所以核心还是第一句continuous()
 }

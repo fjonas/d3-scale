@@ -7,9 +7,9 @@ import number from "./number";
 var unit = [0, 1];
 
 export function deinterpolateLinear(a, b) {
-  return (b -= (a = +a))
-      ? function(x) { return (x - a) / b; }
-      : constant(b);
+  return (b -= (a = +a)) // b = b - a, 不知道为什么要花里胡哨
+      ? function(x) { return (x - a) / b; } // 当a, b不相等, 返回 x 在 a, b中的比例. 也就是 x - a / b - a
+      : constant(b); // 当a, b相等 永远返回  0
 }
 
 function deinterpolateClamp(deinterpolate) {
@@ -74,38 +74,58 @@ export default function continuous(deinterpolate, reinterpolate) {
       piecewise,
       output,
       input;
-
+  /*
+    continuous返回值, 返回值调用任何方法的返回值都是这个.
+    对piece wise做了处理, 把output和input置空,
+    最后返回scale.
+   */
   function rescale() {
-    piecewise = Math.min(domain.length, range.length) > 2 ? polymap : bimap;
+    piecewise = Math.min(domain.length, range.length) > 2 ? polymap : bimap; // 我们使用的都是length === 2的, 所以是bimap
     output = input = null;
     return scale;
   }
 
   function scale(x) {
     return (output || (output = piecewise(domain, range, clamp ? deinterpolateClamp(deinterpolate) : deinterpolate, interpolate)))(+x);
+    /*
+        翻译:
+        1. 输出: piecewise(domain, range, deinterpolate, interpolate)(x)
+        2. clamp是通过scale.clamp()设置的, 超出范围是否纠正到范围内, 默认false, 如果是true会小小改写deinterpolate方法
+        3. 在调用rescale()前都会保存当前输出(不重新计算, 因为结果肯定是一样的). rescale会在调用scale的任何方法时调用.
+     */
   }
 
   scale.invert = function(y) {
     return (input || (input = piecewise(range, domain, deinterpolateLinear, clamp ? reinterpolateClamp(reinterpolate) : reinterpolate)))(+y);
+    /*
+        和上面scale一样, 调用了piecewise, 传了不同的参数~ 让我们到bimap里去研究吧.
+     */
   };
 
   scale.domain = function(_) {
     return arguments.length ? (domain = map.call(_, number), rescale()) : domain.slice();
+    /*
+        如果不传参, 返回当前domain, 阻断链式操作
+        如果传了, domain = _.map( a => +a), 然后返回rescale(), 也就是一顿操作再返回scale
+     */
   };
 
   scale.range = function(_) {
     return arguments.length ? (range = slice.call(_), rescale()) : range.slice();
+    /*
+        和domain一样, 可能range不一定要是数字.
+     */
   };
 
   scale.rangeRound = function(_) {
     return range = slice.call(_), interpolate = interpolateRound, rescale();
   };
 
-  scale.clamp = function(_) {
+  scale.clamp = function(_) { // 设置超出范围是否纠正到范围内
     return arguments.length ? (clamp = !!_, rescale()) : clamp;
   };
 
-  scale.interpolate = function(_) {
+  scale.interpolate = function(_) { // 这个本来是从d3-interpolate引入的, 修改这个会改变算法
     return arguments.length ? (interpolate = _, rescale()) : interpolate;
   };
 
